@@ -12,7 +12,7 @@ let readyPromise: Promise<void> | null = null
 // Sound definitions — missing files are silently skipped via onloaderror
 const SOUND_DEFS: Record<string, { src: string; loop?: boolean; volume: number; html5?: boolean }> = {
   ambient: { src: '/sounds/ambient.mp3', loop: true, volume: 0,    html5: true },
-  piano:   { src: '/sounds/piano.mp3',   loop: true, volume: 0,    html5: true },
+  piano:   { src: '/sounds/piano.mp3',   loop: true, volume: 0 },
   bark:    { src: '/sounds/bark.mp3',               volume: 0.15 },
   sneeze:  { src: '/sounds/sneeze.mp3',             volume: 0.15 },
   squeak:  { src: '/sounds/squeak.mp3',             volume: 0.15 },
@@ -93,8 +93,9 @@ export default function AudioToggle() {
       audioEnabled = true
       // Load Howler + create instances, then start music
       await ensureReady()
-      safePlay('ambient', 0.08, 2500)
-      setTimeout(() => safePlay('piano', 0.12, 3000), 1500)
+      safePlay('ambient', 0.08, 3000)
+      // Piano fades in clearly after ambient has established — 6s gap
+      setTimeout(() => safePlay('piano', 0.10, 4000), 6000)
     } else {
       audioEnabled = false
       setMuted(true)
