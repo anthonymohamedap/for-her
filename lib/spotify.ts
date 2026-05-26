@@ -196,6 +196,3 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
     return null
   }
 }
-
-  }
-}
