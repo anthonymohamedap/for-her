@@ -84,6 +84,26 @@ export function playSound(name: string) {
 
 export function stopSound(name: string) { safeStop(name) }
 
+// ─── Garden music pause/resume (called by SpotifyWidget) ─────────────────────
+
+export function pauseGardenMusic() {
+  const musicTracks = ['ambient', 'piano']
+  musicTracks.forEach(name => {
+    const h = howls[name]
+    if (!h) return
+    try { h.fade(h.volume(), 0, 800) } catch {}
+    setTimeout(() => { try { h.pause() } catch {} }, 900)
+  })
+}
+
+export function resumeGardenMusic() {
+  if (!audioEnabled) return
+  const ambient = howls.ambient
+  const piano = howls.piano
+  if (ambient) { try { ambient.play(); ambient.fade(0, 0.08, 1200) } catch {} }
+  if (piano) { try { piano.play(); piano.fade(0, 0.10, 1500) } catch {} }
+}
+
 export default function AudioToggle() {
   const [muted, setMuted] = useState(true)
 

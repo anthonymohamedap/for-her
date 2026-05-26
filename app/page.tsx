@@ -12,6 +12,7 @@ import Schnauzer from '@/components/garden/Schnauzer'
 import Character from '@/components/garden/Character'
 import Grass from '@/components/garden/Grass'
 import Stars from '@/components/garden/Stars'
+import SpotifyWidget from '@/components/garden/SpotifyWidget'
 import { getAllMemories } from '@/lib/supabase'
 import { computeStreak, getGardenLevel } from '@/lib/streak'
 
@@ -336,6 +337,9 @@ export default function GardenPage() {
             background: 'linear-gradient(to top, rgba(5,3,15,0.92) 0%, transparent 100%)',
           }}
         />
+
+        {/* ── Spotify widget ────────────────────────────────────────────── */}
+        <SpotifyWidget />
       </motion.div>
     </main>
   )
