@@ -1,0 +1,106 @@
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=Caveat:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --garden-purple: #C084FC;
+  --garden-pink: #F472B6;
+  --garden-ivory: #FFF8F0;
+  --glow-purple: rgba(192, 132, 252, 0.3);
+  --glow-pink: rgba(244, 114, 182, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background: #000000;
+  color: #FFF8F0;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(192, 132, 252, 0.3);
+  border-radius: 2px;
+}
+
+/* Font utilities */
+.font-cormorant {
+  font-family: 'Cormorant Garamond', serif;
+}
+.font-caveat {
+  font-family: 'Caveat', cursive;
+}
+
+/* Glow effects */
+.glow-purple {
+  filter: drop-shadow(0 0 12px rgba(192, 132, 252, 0.6));
+}
+.glow-pink {
+  filter: drop-shadow(0 0 12px rgba(244, 114, 182, 0.6));
+}
+.text-glow-purple {
+  text-shadow: 0 0 20px rgba(192, 132, 252, 0.8), 0 0 40px rgba(192, 132, 252, 0.4);
+}
+.text-glow-pink {
+  text-shadow: 0 0 20px rgba(244, 114, 182, 0.8), 0 0 40px rgba(244, 114, 182, 0.4);
+}
+
+/* Polaroid card */
+.polaroid {
+  background: #1a1a2e;
+  border: 1px solid rgba(192, 132, 252, 0.2);
+  box-shadow:
+    0 0 20px rgba(192, 132, 252, 0.15),
+    0 4px 40px rgba(0, 0, 0, 0.6);
+}
+
+/* Grass sway */
+@keyframes grassSway {
+  0%, 100% { transform-origin: bottom center; transform: rotate(-2deg); }
+  50% { transform-origin: bottom center; transform: rotate(2deg); }
+}
+.grass-sway {
+  animation: grassSway 3s ease-in-out infinite;
+}
+.grass-sway-alt {
+  animation: grassSway 4s ease-in-out infinite reverse;
+}
+.grass-sway-slow {
+  animation: grassSway 6s ease-in-out infinite;
+}
+
+/* Ambient background glow */
+.ambient-glow {
+  background: radial-gradient(ellipse at 20% 50%, rgba(79, 70, 229, 0.08) 0%, transparent 60%),
+              radial-gradient(ellipse at 80% 20%, rgba(192, 132, 252, 0.06) 0%, transparent 50%),
+              radial-gradient(ellipse at 60% 80%, rgba(244, 114, 182, 0.05) 0%, transparent 50%),
+              #000000;
+}
+
+/* Will-change for perf */
+.will-change-transform {
+  will-change: transform;
+}
+
+/* Upload area */
+.upload-zone {
+  border: 1.5px dashed rgba(192, 132, 252, 0.4);
+  transition: border-color 0.3s, background 0.3s;
+}
+.upload-zone:hover, .upload-zone.dragover {
+  border-color: rgba(192, 132, 252, 0.8);
+  background: rgba(192, 132, 252, 0.05);
+}
