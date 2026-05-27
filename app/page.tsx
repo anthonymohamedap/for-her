@@ -9,6 +9,7 @@ import Butterfly from '@/components/garden/Butterfly'
 import Firefly from '@/components/garden/Firefly'
 import FloatingMessage from '@/components/garden/FloatingMessage'
 import Schnauzer from '@/components/garden/Schnauzer'
+import GermanShepherd from '@/components/garden/GermanShepherd'
 import Character from '@/components/garden/Character'
 import Grass from '@/components/garden/Grass'
 import Stars from '@/components/garden/Stars'
@@ -69,13 +70,14 @@ export default function GardenPage() {
   const [gardenLevel, setGardenLevel] = useState<0 | 1 | 2>(0)
   const isDesktop = useIsDesktop()
 
-  // Schnauzer scale: 28vh on desktop, 16vh on mobile
+  // Dog scales — schnauzer 28/16vh, shepherd 26/18vh
   const [schnauzerScale, setSchnauzerScale] = useState(1.0)
+  const [shepherdScale, setShepherdScale]   = useState(1.0)
   useEffect(() => {
     const compute = () => {
       const isMd = window.innerWidth >= 768
-      const targetVh = isMd ? 0.28 : 0.16
-      setSchnauzerScale((window.innerHeight * targetVh) / 160)
+      setSchnauzerScale((window.innerHeight * (isMd ? 0.28 : 0.16)) / 160)
+      setShepherdScale((window.innerHeight * (isMd ? 0.26 : 0.18)) / 160)
     }
     compute()
     window.addEventListener('resize', compute)
@@ -184,7 +186,7 @@ export default function GardenPage() {
               zIndex: 1,
             }}
             animate={{ x: [-15, 15], opacity: [0.4, 0.8, 0.4] }}
-            transition={{ duration: h.dur, delay: h.delay, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+            transition={{ duration: h.dur, delay: h.delay, repeat: Infinity, repeatType: 'reverse' as const, ease: 'easeInOut' }}
           />
         ))}
 
@@ -339,7 +341,7 @@ export default function GardenPage() {
           />
         </div>
 
-        {/* ── Schnauzer — centered, slightly in front ───────────────────── */}
+        {/* ── Dogs — schnauzer centered, shepherd to the right ─────────── */}
         <div
           className="absolute"
           style={{
@@ -347,15 +349,16 @@ export default function GardenPage() {
             bottom: schnauzerBot,
             transform: 'translateX(-50%)',
             zIndex: 11,
+            display: 'flex',
+            alignItems: 'flex-end',
+            gap: isDesktop ? '4vw' : '2vw',
           }}
         >
-          <div
-            style={{
-              transform: `scale(${schnauzerScale})`,
-              transformOrigin: 'bottom center',
-            }}
-          >
+          <div style={{ transform: `scale(${schnauzerScale})`, transformOrigin: 'bottom center' }}>
             <Schnauzer />
+          </div>
+          <div style={{ transform: `scale(${shepherdScale})`, transformOrigin: 'bottom center' }}>
+            <GermanShepherd />
           </div>
         </div>
 
