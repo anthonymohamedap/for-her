@@ -12,6 +12,7 @@ import Schnauzer from '@/components/garden/Schnauzer'
 import Character from '@/components/garden/Character'
 import Grass from '@/components/garden/Grass'
 import Stars from '@/components/garden/Stars'
+import Moon from '@/components/garden/Moon'
 import SpotifyWidget from '@/components/garden/SpotifyWidget'
 import { getAllMemories } from '@/lib/supabase'
 import { computeStreak, getGardenLevel } from '@/lib/streak'
@@ -157,6 +158,35 @@ export default function GardenPage() {
 
         {/* ── Stars (desktop only) ───────────────────────────────────────── */}
         <Stars />
+
+        {/* ── Moon + clouds (desktop only) ──────────────────────────────── */}
+        <div className="hidden md:block">
+          <Moon />
+        </div>
+
+        {/* ── Mid-scene atmospheric haze ────────────────────────────────── */}
+        {[
+          { left: '10%', top: '30%', w: 200, dur: 20, delay: 0 },
+          { left: '55%', top: '25%', w: 160, dur: 25, delay: 5 },
+          { left: '30%', top: '50%', w: 240, dur: 18, delay: 8 },
+          { left: '70%', top: '45%', w: 180, dur: 22, delay: 3 },
+          { left: '15%', top: '60%', w: 140, dur: 30, delay: 12 },
+        ].map((h, i) => (
+          <motion.div
+            key={`haze-${i}`}
+            className="absolute pointer-events-none"
+            style={{
+              left: h.left, top: h.top,
+              width: h.w, height: h.w * 0.4,
+              borderRadius: '50%',
+              background: 'radial-gradient(ellipse, rgba(150,100,220,0.06) 0%, transparent 70%)',
+              filter: 'blur(20px)',
+              zIndex: 1,
+            }}
+            animate={{ x: [-15, 15], opacity: [0.4, 0.8, 0.4] }}
+            transition={{ duration: h.dur, delay: h.delay, repeat: Infinity, repeatType: 'reverse', ease: 'easeInOut' }}
+          />
+        ))}
 
         {/* ── Fireflies ─────────────────────────────────────────────────── */}
         {Array.from({ length: fireflyCount }, (_, i) => (
