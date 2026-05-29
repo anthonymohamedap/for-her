@@ -26,7 +26,8 @@ export function loadTokens(): SpotifyTokens | null {
 export function clearTokens() {
   if (typeof window === 'undefined') return
   localStorage.removeItem('spotify_tokens')
-  localStorage.removeItem('spotify_code_verifier')
+  // Do NOT remove spotify_code_verifier here — it belongs to the in-progress auth flow
+  // and is cleaned up by exchangeCode() after a successful exchange
 }
 
 function randomBase64url(len: number): string {
@@ -49,12 +50,15 @@ export async function startLogin() {
 
 export async function exchangeCode(code: string): Promise<SpotifyTokens> {
   const verifier = localStorage.getItem('spotify_code_verifier')
-  if (!verifier) throw new Error('Missing PKCE verifier')
+  if (!verifier) throw new Error('Missing PKCE verifier — please try connecting again')
   const res = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'authorization_code', code, redirect_uri: REDIRECT_URI, client_id: CLIENT_ID, code_verifier: verifier }),
   })
-  if (!res.ok) throw new Error(`Token exchange failed: ${res.status}`)
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error(`Token exchange failed: ${res.status} — ${err.error ?? 'unknown'}: ${err.error_description ?? ''}`)
+  }
   const d = await res.json()
   const tokens = { accessToken: d.access_token, refreshToken: d.refresh_token, expiresAt: Date.now() + d.expires_in * 1000 }
   saveTokens(tokens)
