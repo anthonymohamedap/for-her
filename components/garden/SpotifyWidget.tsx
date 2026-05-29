@@ -36,6 +36,7 @@ export default function SpotifyWidget() {
   const [actionPending, setActionPending] = useState(false)
   const [tracks, setTracks]         = useState<PlaylistTrack[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
+  const tracksTriedRef = useRef(false)
   const [query, setQuery]           = useState('')
   const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
   const [searching, setSearching]   = useState(false)
@@ -89,7 +90,7 @@ export default function SpotifyWidget() {
   async function handleAddTrack(track: SearchTrack) {
     const id = getPlaylistId(); if (!id) return
     const ok = await addTrackToPlaylist(id, track.uri)
-    if (ok) { setAddedUris(prev => { const s = new Set(Array.from(prev)); s.add(track.uri); return s }); setTracks([]); setLoadingTracks(false) }
+    if (ok) { setAddedUris(prev => { const s = new Set(Array.from(prev)); s.add(track.uri); return s }); setTracks([]); setLoadingTracks(false); tracksTriedRef.current = false }
   }
 
   async function handlePlayPause() {

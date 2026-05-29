@@ -52,6 +52,7 @@ export default function DesktopSpotifyPanel() {
   const [actionPending, setActionPending] = useState(false)
   const [tracks, setTracks] = useState<PlaylistTrack[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
+  const tracksTriedRef = useRef(false)
   // Search state
   const [query, setQuery] = useState('')
   const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
@@ -89,12 +90,13 @@ export default function DesktopSpotifyPanel() {
   }, [connected, poll])
 
   useEffect(() => {
-    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks) return
+    if (tab !== 'playlist' || tracksTriedRef.current) return
     const id = getPlaylistId()
     if (!id) return
+    tracksTriedRef.current = true
     setLoadingTracks(true)
     getPlaylistTracks(id).then(t => { setTracks(t); setLoadingTracks(false) })
-  }, [tab, tracks.length, loadingTracks])
+  }, [tab])
 
   // Debounced search
   function handleQueryChange(q: string) {
