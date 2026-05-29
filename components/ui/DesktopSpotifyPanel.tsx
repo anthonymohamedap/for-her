@@ -60,6 +60,9 @@ export default function DesktopSpotifyPanel() {
 
   useEffect(() => subscribePanelOpen(() => setOpen(getPanelOpen())), [])
 
+  // Clear any stale playlist guard from a previous session so a fresh fetch can happen
+  useEffect(() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY) }, [])
+
   // Never auto-connect — user must press connect each session
   function handleConnect() {
     if (loadTokens()) { setConnected(true) }

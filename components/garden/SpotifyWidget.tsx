@@ -50,7 +50,8 @@ export default function SpotifyWidget() {
   }, [])
 
   // Never auto-connect — user must press connect each session
-  useEffect(() => { setLoading(false) }, [])
+  // Clear any stale playlist guard from a previous session so a fresh fetch can happen
+  useEffect(() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY); setLoading(false) }, [])
 
   function handleConnect() {
     if (loadTokens()) { setConnected(true) }
