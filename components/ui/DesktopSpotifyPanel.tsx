@@ -92,12 +92,15 @@ export default function DesktopSpotifyPanel() {
   // Load playlist tracks — sessionStorage guard prevents loop across remounts
   function loadPlaylist() {
     const id = getPlaylistId()
-    if (!id) return
+    if (!id) { console.log('[spotify:desktop] no playlist id, skipping'); return }
+    console.log('[spotify:desktop] loadPlaylist() → fetching', id)
     setTrackError(false)
     setLoadingTracks(true)
     sessionStorage.setItem(PLAYLIST_FETCH_KEY, '1')
     getPlaylistTracks(id).then(t => {
+      console.log('[spotify:desktop] fetch done — tracks:', t.length)
       if (t.length === 0) {
+        console.warn('[spotify:desktop] empty result (likely 429) — guard stays set, no retry loop')
         setTrackError(true)
         // Keep the guard set — do NOT remove it here or the effect will loop
       } else {
@@ -108,8 +111,10 @@ export default function DesktopSpotifyPanel() {
   }
 
   useEffect(() => {
+    console.log('[spotify:desktop] playlist effect —', { tab, tracksLen: tracks.length, loadingTracks, trackError, guard: sessionStorage.getItem(PLAYLIST_FETCH_KEY) })
     if (tab !== 'playlist' || tracks.length > 0 || loadingTracks || trackError) return
     if (sessionStorage.getItem(PLAYLIST_FETCH_KEY)) return
+    console.log('[spotify:desktop] effect → calling loadPlaylist()')
     loadPlaylist()
   }, [tab, tracks.length, loadingTracks, trackError])
 
@@ -271,7 +276,7 @@ export default function DesktopSpotifyPanel() {
                         {loadingTracks ? 'loading…' : trackError ? 'could not load playlist' : tracks.length > 0 ? `${tracks.length} songs` : ''}
                       </p>
                       {trackError && (
-                        <button onClick={() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY); setTrackError(false); loadPlaylist() }} style={{ marginTop: 6, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 14px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 12, color: 'rgba(200,130,255,0.7)' }}>retry</button>
+                        <button disabled={loadingTracks} onClick={() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY); setTrackError(false) }} style={{ marginTop: 6, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 14px', cursor: loadingTracks ? 'default' : 'pointer', fontFamily: "'Caveat', cursive", fontSize: 12, color: loadingTracks ? 'rgba(200,130,255,0.3)' : 'rgba(200,130,255,0.7)' }}>retry</button>
                       )}
                     </div>
                     {/* Track list — no search */}
