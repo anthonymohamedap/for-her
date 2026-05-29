@@ -15,6 +15,15 @@ function CallbackInner() {
     if (handled.current) return
     handled.current = true
 
+    // Guard against double-exchange across component remounts (StrictMode / HMR)
+    // sessionStorage persists within the tab session but resets on navigation
+    const GUARD_KEY = 'spotify_exchange_guard'
+    if (sessionStorage.getItem(GUARD_KEY)) {
+      router.replace('/')
+      return
+    }
+    sessionStorage.setItem(GUARD_KEY, '1')
+
     const code = params.get('code')
     const error = params.get('error')
 
@@ -24,8 +33,9 @@ function CallbackInner() {
     }
 
     exchangeCode(code)
-      .then(() => router.replace('/'))
+      .then(() => { sessionStorage.removeItem(GUARD_KEY); router.replace('/') })
       .catch((e: unknown) => {
+        sessionStorage.removeItem(GUARD_KEY)
         const msg = e instanceof Error ? e.message : String(e)
         console.error('[spotify callback]', msg)
         setErrMsg(msg)
