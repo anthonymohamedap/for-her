@@ -47,7 +47,14 @@ export default function SpotifyWidget() {
   const pollRef       = useRef<ReturnType<typeof setInterval>>()
 
   const disconnect = useCallback(() => { clearTokens(); setConnected(false) }, [])
-  useEffect(() => { setConnected(!!loadTokens()); setLoading(false) }, [])
+
+  // Never auto-connect — user must press connect each session
+  useEffect(() => { setLoading(false) }, [])
+
+  function handleConnect() {
+    if (loadTokens()) { setConnected(true) } // tokens still valid — no re-auth needed
+    else { startLogin() }
+  }
 
   const poll = useCallback(async () => {
     const result = await getNowPlaying()
@@ -69,16 +76,17 @@ export default function SpotifyWidget() {
   }, [connected, poll])
 
   useEffect(() => {
-    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks) return
+    if (tab !== 'playlist' || tracksTriedRef.current) return
     const id = getPlaylistId(); if (!id) return
+    tracksTriedRef.current = true
     setLoadingTracks(true)
     getPlaylistTracks(id).then(t => { setTracks(t); setLoadingTracks(false) })
-  }, [tab, tracks.length, loadingTracks])
+  }, [tab])
 
   function handleQueryChange(q: string) {
     setQuery(q)
     clearTimeout(searchTimerRef.current)
-    if (!q.trim()) { setSearchResults([]); return }
+    if (q.trim().length < 2) { setSearchResults([]); return }
     searchTimerRef.current = setTimeout(async () => {
       setSearching(true)
       const results = await searchTracks(q)
@@ -140,7 +148,7 @@ export default function SpotifyWidget() {
   if (!connected) {
     return (
       <motion.div variants={springIn} initial="hidden" animate="visible" className="md:hidden" style={{ position: 'fixed', top: 16, left: 16, zIndex: 50 }}>
-        <motion.button onClick={startLogin} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} style={{ ...GLASS, borderRadius: 50, padding: '8px 16px 8px 10px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+        <motion.button onClick={handleConnect} whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }} style={{ ...GLASS, borderRadius: 50, padding: '8px 16px 8px 10px', display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
           <SpotifyLogo size={14} />
           <span style={{ fontFamily: "'Caveat', cursive", fontSize: 13, color: 'rgba(200,150,255,0.7)', letterSpacing: '0.05em' }}>connect spotify</span>
         </motion.button>

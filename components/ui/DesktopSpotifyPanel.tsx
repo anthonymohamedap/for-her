@@ -64,7 +64,11 @@ export default function DesktopSpotifyPanel() {
   const pollRef = useRef<ReturnType<typeof setInterval>>()
 
   useEffect(() => subscribePanelOpen(() => setOpen(getPanelOpen())), [])
-  useEffect(() => { setConnected(!!loadTokens()) }, [])
+  // Never auto-connect — user must press connect each session
+  function handleConnect() {
+    if (loadTokens()) { setConnected(true) }
+    else { startLogin() }
+  }
 
   const poll = useCallback(async () => {
     const result = await getNowPlaying()
@@ -102,7 +106,7 @@ export default function DesktopSpotifyPanel() {
   function handleQueryChange(q: string) {
     setQuery(q)
     clearTimeout(searchTimerRef.current)
-    if (!q.trim()) { setSearchResults([]); return }
+    if (q.trim().length < 2) { setSearchResults([]); return }
     searchTimerRef.current = setTimeout(async () => {
       setSearching(true)
       const results = await searchTracks(q)
@@ -198,7 +202,7 @@ export default function DesktopSpotifyPanel() {
                   <p style={{ margin: '6px 0 0', fontFamily: "'Caveat', cursive", fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic' }}>to listen together</p>
                 </div>
                 <button
-                  onClick={startLogin}
+                  onClick={handleConnect}
                   style={{ marginTop: 8, padding: '10px 28px', borderRadius: 50, background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(200,130,255,0.4)', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 15, color: 'rgba(220,180,255,0.9)', letterSpacing: '0.05em', transition: 'all 0.2s' }}
                   onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.35)'; e.currentTarget.style.borderColor = 'rgba(249,168,212,0.7)'; e.currentTarget.style.color = 'white' }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.2)'; e.currentTarget.style.borderColor = 'rgba(200,130,255,0.4)'; e.currentTarget.style.color = 'rgba(220,180,255,0.9)' }}
