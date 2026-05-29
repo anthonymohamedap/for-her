@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import {
-  loadTokens, clearTokens, getNowPlaying, getPlaylistId, getPlaylistTracks,
+  startLogin, loadTokens, clearTokens, getNowPlaying, getPlaylistId, getPlaylistTracks,
   searchTracks, addTrackToPlaylist,
   PLAYLIST_URL, type NowPlaying, type PlaylistTrack, type SearchTrack,
   spotifyPlay, spotifyPause, spotifyNext, spotifyPrev, spotifySeek, spotifyPlayTrack,
@@ -174,16 +174,39 @@ export default function DesktopSpotifyPanel() {
               onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.06)'; e.currentTarget.style.color = 'rgba(200,130,255,0.5)' }}
             >✕</button>
 
-            {/* Tabs */}
-            <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', marginTop: 14 }}>
+            {/* Tabs — only when connected */}
+            {connected && <div style={{ flexShrink: 0, display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', marginTop: 14 }}>
               {(['player', 'playlist'] as const).map(t => (
                 <button key={t} onClick={() => setTab(t)} style={{ flex: 1, padding: '10px 0', fontSize: 12, fontFamily: "'Caveat', cursive", letterSpacing: '0.06em', background: 'none', border: 'none', cursor: 'pointer', color: tab === t ? 'rgba(249,168,212,0.9)' : 'rgba(200,130,255,0.4)', borderBottom: tab === t ? '2px solid rgba(249,168,212,0.7)' : '2px solid transparent', transition: 'all 0.2s' }}>
                   {t === 'player' ? '♪ now playing' : '☰ our playlist'}
                 </button>
               ))}
-            </div>
+            </div>}
 
-            <AnimatePresence mode="wait">
+            {/* Not connected view */}
+            {!connected && (
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 16, padding: '0 28px 40px' }}>
+                <div style={{ width: 64, height: 64, borderRadius: '50%', background: 'rgba(168,85,247,0.12)', border: '1px solid rgba(200,130,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <svg viewBox="0 0 24 24" fill="rgba(200,150,255,0.6)" style={{ width: 32, height: 32 }}>
+                    <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.419 1.56-.299.421-1.02.599-1.559.3z" />
+                  </svg>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <p style={{ margin: 0, fontFamily: "'Cormorant Garamond', serif", fontSize: 18, color: 'var(--text-primary)' }}>connect spotify</p>
+                  <p style={{ margin: '6px 0 0', fontFamily: "'Caveat', cursive", fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic' }}>to listen together</p>
+                </div>
+                <button
+                  onClick={startLogin}
+                  style={{ marginTop: 8, padding: '10px 28px', borderRadius: 50, background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(200,130,255,0.4)', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 15, color: 'rgba(220,180,255,0.9)', letterSpacing: '0.05em', transition: 'all 0.2s' }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.35)'; e.currentTarget.style.borderColor = 'rgba(249,168,212,0.7)'; e.currentTarget.style.color = 'white' }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'rgba(168,85,247,0.2)'; e.currentTarget.style.borderColor = 'rgba(200,130,255,0.4)'; e.currentTarget.style.color = 'rgba(220,180,255,0.9)' }}
+                >
+                  ♪ sign in with spotify
+                </button>
+              </div>
+            )}
+
+            {connected && <AnimatePresence mode="wait">
               {tab === 'player' ? (
                 <motion.div key="player" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                   {/* Album art */}
@@ -317,7 +340,7 @@ export default function DesktopSpotifyPanel() {
                   </div>
                 </motion.div>
               )}
-            </AnimatePresence>
+            </AnimatePresence>}
           </motion.aside>
         )}
       </AnimatePresence>

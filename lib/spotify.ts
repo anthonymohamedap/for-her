@@ -7,6 +7,8 @@ const SCOPES = [
   'user-read-currently-playing',
   'user-read-playback-state',
   'user-modify-playback-state',
+  'playlist-read-private',
+  'playlist-read-collaborative',
   'playlist-modify-public',
   'playlist-modify-private',
 ].join(' ')
@@ -233,6 +235,6 @@ export async function addTrackToPlaylist(playlistId: string, trackUri: string): 
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ uris: [trackUri] }),
     })
-    return res.status === 201 || res.status === 200
+        return res.status === 201 || res.status === 200
   } catch { return false }
 }
