@@ -99,7 +99,7 @@ export default function DesktopSpotifyPanel() {
     getPlaylistTracks(id).then(t => {
       if (t.length === 0) {
         setTrackError(true)
-        sessionStorage.removeItem(PLAYLIST_FETCH_KEY) // allow retry
+        // Keep the guard set — do NOT remove it here or the effect will loop
       } else {
         setTracks(t)
       }
@@ -108,10 +108,10 @@ export default function DesktopSpotifyPanel() {
   }
 
   useEffect(() => {
-    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks) return
+    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks || trackError) return
     if (sessionStorage.getItem(PLAYLIST_FETCH_KEY)) return
     loadPlaylist()
-  }, [tab, tracks.length, loadingTracks])
+  }, [tab, tracks.length, loadingTracks, trackError])
 
   const isPlaying = nowPlaying?.isPlaying ?? false
   const progress  = nowPlaying && nowPlaying.durationMs > 0 ? nowPlaying.progressMs / nowPlaying.durationMs : 0
@@ -271,7 +271,7 @@ export default function DesktopSpotifyPanel() {
                         {loadingTracks ? 'loading…' : trackError ? 'could not load playlist' : tracks.length > 0 ? `${tracks.length} songs` : ''}
                       </p>
                       {trackError && (
-                        <button onClick={loadPlaylist} style={{ marginTop: 6, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 14px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 12, color: 'rgba(200,130,255,0.7)' }}>retry</button>
+                        <button onClick={() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY); setTrackError(false); loadPlaylist() }} style={{ marginTop: 6, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 14px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 12, color: 'rgba(200,130,255,0.7)' }}>retry</button>
                       )}
                     </div>
                     {/* Track list — no search */}

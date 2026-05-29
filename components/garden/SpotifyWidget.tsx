@@ -92,7 +92,7 @@ export default function SpotifyWidget() {
     getPlaylistTracks(id).then(t => {
       if (t.length === 0) {
         setTrackError(true)
-        sessionStorage.removeItem(PLAYLIST_FETCH_KEY) // allow retry
+        // Keep the guard set — do NOT remove it here or the effect will loop
       } else {
         setTracks(t)
       }
@@ -101,10 +101,10 @@ export default function SpotifyWidget() {
   }
 
   useEffect(() => {
-    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks) return
+    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks || trackError) return
     if (sessionStorage.getItem(PLAYLIST_FETCH_KEY)) return
     loadPlaylist()
-  }, [tab, tracks.length, loadingTracks])
+  }, [tab, tracks.length, loadingTracks, trackError])
 
   async function handlePlayPause() {
     if (actionPending || !nowPlaying) return
@@ -239,7 +239,7 @@ export default function SpotifyWidget() {
                 {loadingTracks ? 'loading…' : trackError ? 'could not load — tap retry' : tracks.length > 0 ? `${tracks.length} songs` : ''}
               </p>
               {trackError && (
-                <button onClick={loadPlaylist} style={{ marginTop: 4, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 12px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 11, color: 'rgba(200,130,255,0.7)' }}>retry</button>
+                <button onClick={() => { sessionStorage.removeItem(PLAYLIST_FETCH_KEY); setTrackError(false); loadPlaylist() }} style={{ marginTop: 4, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 12px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 11, color: 'rgba(200,130,255,0.7)' }}>retry</button>
               )}
             </div>
             {/* Track list — no search */}
