@@ -110,6 +110,7 @@ export default function SpotifyWidget() {
     return (
       <motion.div
         variants={springIn} initial="hidden" animate="visible"
+        className="md:hidden"
         style={{ position: 'fixed', top: 16, left: 16, zIndex: 50 }}
       >
         <motion.button
@@ -213,7 +214,7 @@ export default function SpotifyWidget() {
           >
             <p style={{
               fontFamily: "'Cormorant Garamond', serif",
-              fontSize: 13, color: 'rgba(255,240,255,0.9)',
+              fontSize: 18, fontWeight: 600, color: 'var(--text-primary)',
               margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
             }}>
               {isPlaying ? nowPlaying!.title : 'nothing playing…'}
@@ -221,7 +222,7 @@ export default function SpotifyWidget() {
             {isPlaying && (
               <p style={{
                 fontFamily: "'Caveat', cursive",
-                fontSize: 11, color: 'rgba(200,150,255,0.6)', fontStyle: 'italic',
+                fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic',
                 margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
               }}>
                 {nowPlaying!.artist}
@@ -243,23 +244,15 @@ export default function SpotifyWidget() {
 
       {PLAYLIST_URL && <PlaylistLink href={PLAYLIST_URL} />}
 
-      <button
-        onClick={disconnect}
-        style={{
-          background: 'none', border: 'none', marginTop: -4,
-          fontSize: 9, color: 'rgba(200,130,255,0.25)',
-          cursor: 'pointer', letterSpacing: '0.05em',
-          fontFamily: "'Courier New', monospace",
-        }}
-      >
-        disconnect
-      </button>
+      <MobileSessionModal onDisconnect={disconnect} />
     </div>
   )
 
+  // On desktop the top bar handles the player — show this only on mobile
   return (
     <motion.div
       variants={springIn} initial="hidden" animate="visible"
+      className="md:hidden"
       style={{
         position: 'fixed', top: 16, left: 16, zIndex: 50,
         width: 'calc(100vw - 32px)',
@@ -297,17 +290,18 @@ export default function SpotifyWidget() {
 
 function ProgressBar({ progress }: { progress: number }) {
   return (
-    <div style={{ width: '100%', height: 12, display: 'flex', alignItems: 'center' }}>
-      <div style={{ width: '100%', height: 2, background: 'rgba(255,255,255,0.1)', borderRadius: 2 }}>
+    // 20px tall touch zone, 4px visual bar
+    <div style={{ width: '100%', height: 20, display: 'flex', alignItems: 'center' }}>
+      <div style={{ width: '100%', height: 4, background: 'rgba(255,255,255,0.1)', borderRadius: 4, position: 'relative' }}>
         <div style={{
           width: `${progress * 100}%`, height: '100%',
-          background: 'linear-gradient(90deg,#c084fc,#f472b6)', borderRadius: 2,
-          boxShadow: '0 0 6px rgba(240,100,180,0.6)',
+          background: 'linear-gradient(90deg,#c084fc,#f472b6)', borderRadius: 4,
+          boxShadow: '0 0 8px rgba(240,100,180,0.5)',
           transition: 'width 2s linear', position: 'relative',
         }}>
           <div style={{
-            position: 'absolute', right: -4, top: '50%', transform: 'translateY(-50%)',
-            width: 8, height: 8, borderRadius: '50%',
+            position: 'absolute', right: -5, top: '50%', transform: 'translateY(-50%)',
+            width: 10, height: 10, borderRadius: '50%',
             background: '#f9a8d4', boxShadow: '0 0 8px rgba(249,168,212,0.8)',
           }} />
         </div>
@@ -315,6 +309,78 @@ function ProgressBar({ progress }: { progress: number }) {
     </div>
   )
 }
+
+// ── Mobile session modal — replaces bare "disconnect" ────────────────────────
+function MobileSessionModal({ onDisconnect }: { onDisconnect: () => void }) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div style={{ textAlign: 'center', marginTop: -4, position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer',
+          fontSize: 12, color: 'var(--text-tertiary)',
+          letterSpacing: '0.04em', fontFamily: "'Courier New', monospace",
+          minHeight: 36, padding: '6px 12px',
+          transition: 'color 0.2s',
+        }}
+        onMouseEnter={e => (e.currentTarget.style.color = 'rgba(255,255,255,0.5)')}
+        onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-tertiary)')}
+      >
+        ⚙ session
+      </button>
+
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 4 }}
+            transition={{ duration: 0.18 }}
+            style={{
+              position: 'absolute', bottom: 'calc(100% + 6px)', left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(8,2,18,0.97)',
+              border: '1px solid rgba(200,130,255,0.2)',
+              borderRadius: 12, padding: '12px 16px', width: 200,
+              boxShadow: '0 4px 24px rgba(0,0,0,0.6)',
+              zIndex: 110,
+            }}
+          >
+            <p style={{ margin: '0 0 10px', fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.4 }}>
+              Connected via Spotify
+            </p>
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'center' }}>
+              <button
+                onClick={() => setOpen(false)}
+                style={{
+                  padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.06)',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  color: 'var(--text-secondary)', fontSize: 12,
+                  minHeight: 36,
+                }}
+              >
+                keep
+              </button>
+              <button
+                onClick={onDisconnect}
+                style={{
+                  padding: '6px 10px', borderRadius: 8, cursor: 'pointer',
+                  background: 'rgba(168,85,247,0.12)',
+                  border: '1px solid rgba(200,130,255,0.2)',
+                  color: 'rgba(200,130,255,0.8)', fontSize: 12,
+                  minHeight: 36,
+                }}
+              >
+                disconnect
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 
 function PlaylistLink({ href }: { href: string }) {
   return (
@@ -336,11 +402,12 @@ function PlaylistLink({ href }: { href: string }) {
 function CtrlBtn({ children, large }: { children: React.ReactNode; large?: boolean }) {
   return (
     <button style={{
+      width: 44, height: 44,
       background: large ? 'rgba(168,85,247,0.2)' : 'none',
       border: large ? '1px solid rgba(200,130,255,0.25)' : 'none',
       borderRadius: '50%', color: 'rgba(220,180,255,0.7)',
       cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-      padding: large ? 0 : 4, transition: 'color 0.2s, transform 0.2s',
+      transition: 'color 0.2s, transform 0.2s',
     }}
       onMouseEnter={e => { e.currentTarget.style.color = 'rgba(249,168,212,1)'; e.currentTarget.style.transform = 'scale(1.15)' }}
       onMouseLeave={e => { e.currentTarget.style.color = 'rgba(220,180,255,0.7)'; e.currentTarget.style.transform = 'scale(1)' }}

@@ -5,11 +5,34 @@
 @tailwind utilities;
 
 :root {
+  /* ── Palette ─────────────────────────────────────── */
   --garden-purple: #C084FC;
   --garden-pink: #F472B6;
   --garden-ivory: #FFF8F0;
   --glow-purple: rgba(192, 132, 252, 0.3);
   --glow-pink: rgba(244, 114, 182, 0.3);
+
+  /* ── Design system tokens ────────────────────────── */
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255, 255, 255, 0.6);
+  --text-tertiary: rgba(255, 255, 255, 0.35);
+  --text-min-size: 12px;
+  --text-base-size: 14px;
+
+  --accent-pink: #E88FB5;
+  --accent-purple: #9B6FD4;
+
+  --card-bg: rgba(255, 255, 255, 0.06);
+  --card-border: rgba(255, 255, 255, 0.10);
+  --card-blur: blur(20px);
+
+  --glass-bg: rgba(15, 5, 30, 0.60);
+  --glass-border: rgba(200, 130, 255, 0.15);
+
+  --touch-target: 44px;
+
+  --bar-height-mobile: 56px;
+  --bar-height-desktop: 64px;
 }
 
 * {

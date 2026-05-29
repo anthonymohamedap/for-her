@@ -8,6 +8,7 @@ import type { Identity } from '@/lib/supabase'
 import IdentityScreen from '@/components/ui/IdentityScreen'
 import Nav from '@/components/ui/Nav'
 import AudioToggle from '@/components/ui/AudioToggle'
+import DesktopTopBar from '@/components/ui/DesktopTopBar'
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null | undefined>(undefined)
@@ -44,7 +45,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {identity && (
           <>
+            {/* Mobile: bottom bar nav — desktop: hidden (DesktopTopBar handles it) */}
             <Nav />
+            {/* Desktop unified top bar (player + nav + moon) */}
+            <DesktopTopBar />
             <AudioToggle />
             {children}
           </>
