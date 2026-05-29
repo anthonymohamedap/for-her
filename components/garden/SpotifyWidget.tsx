@@ -6,6 +6,7 @@ import Image from 'next/image'
 import {
   startLogin, loadTokens, clearTokens,
   getNowPlaying, PLAYLIST_URL, type NowPlaying,
+  spotifyPlay, spotifyPause, spotifyNext, spotifyPrev, spotifySeek,
 } from '@/lib/spotify'
 import { pauseGardenMusic, resumeGardenMusic } from '@/components/ui/AudioToggle'
 
@@ -25,6 +26,7 @@ export default function SpotifyWidget() {
   const [loading, setLoading]       = useState(true)
   const [expanded, setExpanded]     = useState(false)
   const [songPulse, setSongPulse]   = useState(false)
+  const [actionPending, setActionPending] = useState(false)
   const wasPlayingRef = useRef(false)
   const prevTitleRef  = useRef('')
   const pollRef       = useRef<ReturnType<typeof setInterval>>()
@@ -60,6 +62,40 @@ export default function SpotifyWidget() {
     pollRef.current = setInterval(poll, POLL_MS)
     return () => clearInterval(pollRef.current)
   }, [connected, poll])
+
+  // Playback control handlers
+  async function handlePlayPause() {
+    if (actionPending || !nowPlaying) return
+    setActionPending(true)
+    const playing = nowPlaying.isPlaying
+    setNowPlaying({ ...nowPlaying, isPlaying: !playing })
+    await (playing ? spotifyPause() : spotifyPlay())
+    setTimeout(() => { poll(); setActionPending(false) }, 600)
+  }
+
+  async function handleNext() {
+    if (actionPending) return
+    setActionPending(true)
+    await spotifyNext()
+    setTimeout(() => { poll(); setActionPending(false) }, 800)
+  }
+
+  async function handlePrev() {
+    if (actionPending) return
+    setActionPending(true)
+    await spotifyPrev()
+    setTimeout(() => { poll(); setActionPending(false) }, 800)
+  }
+
+  async function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
+    if (!nowPlaying || nowPlaying.durationMs === 0) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+    const ms = pct * nowPlaying.durationMs
+    setNowPlaying({ ...nowPlaying, progressMs: ms })
+    await spotifySeek(ms)
+    setTimeout(poll, 1000)
+  }
 
   if (loading) return null
 
@@ -234,13 +270,15 @@ export default function SpotifyWidget() {
 
       {/* Controls */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 20 }}>
-        <CtrlBtn><PrevIcon /></CtrlBtn>
-        <CtrlBtn large><PlayPauseIcon playing={isPlaying} size={36} /></CtrlBtn>
-        <CtrlBtn><NextIcon /></CtrlBtn>
+        <CtrlBtn onClick={handlePrev}><PrevIcon /></CtrlBtn>
+        <CtrlBtn onClick={handlePlayPause} large><PlayPauseIcon playing={isPlaying} size={36} /></CtrlBtn>
+        <CtrlBtn onClick={handleNext}><NextIcon /></CtrlBtn>
       </div>
 
-      {/* Progress */}
-      <ProgressBar progress={progress} />
+      {/* Progress — clickable to seek */}
+      <div onClick={handleSeek} style={{ width: '100%', cursor: 'pointer' }}>
+        <ProgressBar progress={progress} />
+      </div>
 
       {PLAYLIST_URL && <PlaylistLink href={PLAYLIST_URL} />}
 
@@ -399,9 +437,9 @@ function PlaylistLink({ href }: { href: string }) {
   )
 }
 
-function CtrlBtn({ children, large }: { children: React.ReactNode; large?: boolean }) {
+function CtrlBtn({ children, large, onClick }: { children: React.ReactNode; large?: boolean; onClick?: () => void }) {
   return (
-    <button style={{
+    <button onClick={onClick} style={{
       width: 44, height: 44,
       background: large ? 'rgba(168,85,247,0.2)' : 'none',
       border: large ? '1px solid rgba(200,130,255,0.25)' : 'none',

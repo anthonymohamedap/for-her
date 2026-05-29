@@ -3,7 +3,11 @@ const CLIENT_ID = process.env.NEXT_PUBLIC_SPOTIFY_CLIENT_ID!
 const REDIRECT_URI = process.env.NEXT_PUBLIC_SPOTIFY_REDIRECT_URI!
 export const PLAYLIST_URL = process.env.NEXT_PUBLIC_SPOTIFY_PLAYLIST_URL ?? ''
 
-const SCOPES = ['user-read-currently-playing', 'user-read-playback-state'].join(' ')
+const SCOPES = [
+  'user-read-currently-playing',
+  'user-read-playback-state',
+  'user-modify-playback-state',
+].join(' ')
 
 interface SpotifyTokens { accessToken: string; refreshToken: string; expiresAt: number }
 
@@ -103,4 +107,31 @@ export async function getNowPlaying(): Promise<NowPlaying | null> {
       durationMs: item.duration_ms ?? 0,
     }
   } catch { return null }
+}
+
+// ── Playback control (requires Premium + user-modify-playback-state scope) ────
+
+async function playerCmd(method: string, endpoint: string, body?: object): Promise<boolean> {
+  const token = await getValidToken()
+  if (!token) return false
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/me/player${endpoint}`, {
+      method,
+      headers: {
+        Authorization: `Bearer ${token}`,
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    })
+    // 204 = success with no body, 202 = accepted, 200 = ok
+    return res.status === 204 || res.status === 202 || res.status === 200
+  } catch { return false }
+}
+
+export async function spotifyPlay():     Promise<boolean> { return playerCmd('PUT',  '/play') }
+export async function spotifyPause():    Promise<boolean> { return playerCmd('PUT',  '/pause') }
+export async function spotifyNext():     Promise<boolean> { return playerCmd('POST', '/next') }
+export async function spotifyPrev():     Promise<boolean> { return playerCmd('POST', '/previous') }
+export async function spotifySeek(ms: number): Promise<boolean> {
+  return playerCmd('PUT', `/seek?position_ms=${Math.round(ms)}`)
 }
