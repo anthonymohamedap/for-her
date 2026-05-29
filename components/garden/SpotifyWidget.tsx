@@ -6,13 +6,13 @@ import Image from 'next/image'
 import {
   startLogin, loadTokens, clearTokens,
   getNowPlaying, getPlaylistId, getPlaylistTracks,
-  searchTracks, addTrackToPlaylist,
-  PLAYLIST_URL, type NowPlaying, type PlaylistTrack, type SearchTrack,
+  PLAYLIST_URL, type NowPlaying, type PlaylistTrack,
   spotifyPlay, spotifyPause, spotifyNext, spotifyPrev, spotifySeek, spotifyPlayTrack,
 } from '@/lib/spotify'
 import { pauseGardenMusic, resumeGardenMusic } from '@/components/ui/AudioToggle'
 
 const POLL_MS = 12_000
+const PLAYLIST_FETCH_KEY = 'spotify_playlist_fetched'
 
 const GLASS: React.CSSProperties = {
   background: 'rgba(15,5,30,0.6)',
@@ -36,23 +36,24 @@ export default function SpotifyWidget() {
   const [actionPending, setActionPending] = useState(false)
   const [tracks, setTracks]         = useState<PlaylistTrack[]>([])
   const [loadingTracks, setLoadingTracks] = useState(false)
-  const tracksTriedRef = useRef(false)
-  const [query, setQuery]           = useState('')
-  const [searchResults, setSearchResults] = useState<SearchTrack[]>([])
-  const [searching, setSearching]   = useState(false)
-  const [addedUris, setAddedUris]   = useState<Set<string>>(new Set())
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>()
+  const [trackError, setTrackError] = useState(false)
   const wasPlayingRef = useRef(false)
   const prevTitleRef  = useRef('')
   const pollRef       = useRef<ReturnType<typeof setInterval>>()
 
-  const disconnect = useCallback(() => { clearTokens(); setConnected(false) }, [])
+  const disconnect = useCallback(() => {
+    clearTokens()
+    sessionStorage.removeItem(PLAYLIST_FETCH_KEY)
+    setConnected(false)
+    setTracks([])
+    setTrackError(false)
+  }, [])
 
   // Never auto-connect — user must press connect each session
   useEffect(() => { setLoading(false) }, [])
 
   function handleConnect() {
-    if (loadTokens()) { setConnected(true) } // tokens still valid — no re-auth needed
+    if (loadTokens()) { setConnected(true) }
     else { startLogin() }
   }
 
@@ -70,54 +71,74 @@ export default function SpotifyWidget() {
   }, [])
 
   useEffect(() => {
-    if (!connected) { clearInterval(pollRef.current); if (wasPlayingRef.current) { resumeGardenMusic(); wasPlayingRef.current = false } setNowPlaying(null); return }
-    poll(); pollRef.current = setInterval(poll, POLL_MS)
+    if (!connected) {
+      clearInterval(pollRef.current)
+      if (wasPlayingRef.current) { resumeGardenMusic(); wasPlayingRef.current = false }
+      setNowPlaying(null)
+      return
+    }
+    poll()
+    pollRef.current = setInterval(poll, POLL_MS)
     return () => clearInterval(pollRef.current)
   }, [connected, poll])
 
-  useEffect(() => {
-    if (tab !== 'playlist' || tracksTriedRef.current) return
-    const id = getPlaylistId(); if (!id) return
-    tracksTriedRef.current = true
+  // Load playlist tracks — sessionStorage guard prevents any loop across remounts
+  function loadPlaylist() {
+    const id = getPlaylistId()
+    if (!id) return
+    setTrackError(false)
     setLoadingTracks(true)
-    getPlaylistTracks(id).then(t => { setTracks(t); setLoadingTracks(false) })
-  }, [tab])
-
-  function handleQueryChange(q: string) {
-    setQuery(q)
-    clearTimeout(searchTimerRef.current)
-    if (q.trim().length < 2) { setSearchResults([]); return }
-    searchTimerRef.current = setTimeout(async () => {
-      setSearching(true)
-      const results = await searchTracks(q)
-      setSearchResults(results)
-      setSearching(false)
-    }, 400)
+    sessionStorage.setItem(PLAYLIST_FETCH_KEY, '1')
+    getPlaylistTracks(id).then(t => {
+      if (t.length === 0) {
+        setTrackError(true)
+        sessionStorage.removeItem(PLAYLIST_FETCH_KEY) // allow retry
+      } else {
+        setTracks(t)
+      }
+      setLoadingTracks(false)
+    })
   }
 
-  async function handleAddTrack(track: SearchTrack) {
-    const id = getPlaylistId(); if (!id) return
-    const ok = await addTrackToPlaylist(id, track.uri)
-    if (ok) { setAddedUris(prev => { const s = new Set(Array.from(prev)); s.add(track.uri); return s }); setTracks([]); setLoadingTracks(false); tracksTriedRef.current = false }
-  }
+  useEffect(() => {
+    if (tab !== 'playlist' || tracks.length > 0 || loadingTracks) return
+    if (sessionStorage.getItem(PLAYLIST_FETCH_KEY)) return
+    loadPlaylist()
+  }, [tab, tracks.length, loadingTracks])
 
   async function handlePlayPause() {
     if (actionPending || !nowPlaying) return
-    setActionPending(true); const playing = nowPlaying.isPlaying
+    setActionPending(true)
+    const playing = nowPlaying.isPlaying
     setNowPlaying({ ...nowPlaying, isPlaying: !playing })
     await (playing ? spotifyPause() : spotifyPlay())
     setTimeout(() => { poll(); setActionPending(false) }, 600)
   }
-  async function handleNext() { if (actionPending) return; setActionPending(true); await spotifyNext(); setTimeout(() => { poll(); setActionPending(false) }, 800) }
-  async function handlePrev() { if (actionPending) return; setActionPending(true); await spotifyPrev(); setTimeout(() => { poll(); setActionPending(false) }, 800) }
+  async function handleNext() {
+    if (actionPending) return
+    setActionPending(true)
+    await spotifyNext()
+    setTimeout(() => { poll(); setActionPending(false) }, 800)
+  }
+  async function handlePrev() {
+    if (actionPending) return
+    setActionPending(true)
+    await spotifyPrev()
+    setTimeout(() => { poll(); setActionPending(false) }, 800)
+  }
   async function handleSeek(e: React.MouseEvent<HTMLDivElement>) {
     if (!nowPlaying || nowPlaying.durationMs === 0) return
     const rect = e.currentTarget.getBoundingClientRect()
     const ms = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width)) * nowPlaying.durationMs
-    setNowPlaying({ ...nowPlaying, progressMs: ms }); await spotifySeek(ms); setTimeout(poll, 1000)
+    setNowPlaying({ ...nowPlaying, progressMs: ms })
+    await spotifySeek(ms)
+    setTimeout(poll, 1000)
   }
   async function handlePlayTrack(uri: string) {
-    if (actionPending) return; setActionPending(true); await spotifyPlayTrack(uri); setTab('player')
+    if (actionPending) return
+    setActionPending(true)
+    await spotifyPlayTrack(uri)
+    setTab('player')
     setTimeout(() => { poll(); setActionPending(false) }, 800)
   }
 
@@ -125,14 +146,18 @@ export default function SpotifyWidget() {
 
   const isPlaying = nowPlaying?.isPlaying ?? false
   const progress  = nowPlaying && nowPlaying.durationMs > 0 ? nowPlaying.progressMs / nowPlaying.durationMs : 0
-  const activeUri = isPlaying ? tracks.find(t => t.title === nowPlaying?.title)?.uri : undefined
-  const displayList = query.trim() ? searchResults : tracks
+  const activeUri = nowPlaying?.title ? tracks.find(t => t.title === nowPlaying.title)?.uri : undefined
 
-  const springIn = { hidden: { y: -80, opacity: 0 }, visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, damping: 20, stiffness: 200, delay: 2.5 } } }
+  const springIn = {
+    hidden: { y: -80, opacity: 0 },
+    visible: { y: 0, opacity: 1, transition: { type: 'spring' as const, damping: 20, stiffness: 200, delay: 2.5 } },
+  }
 
   const AlbumArt = ({ size }: { size: number }) => (
     <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
-      <motion.div animate={{ rotate: isPlaying ? 360 : 0 }} transition={isPlaying ? { duration: 12, repeat: Infinity, ease: 'linear' } : { duration: 0.8, ease: 'easeOut' }}
+      <motion.div
+        animate={{ rotate: isPlaying ? 360 : 0 }}
+        transition={isPlaying ? { duration: 12, repeat: Infinity, ease: 'linear' } : { duration: 0.8, ease: 'easeOut' }}
         style={{ width: size, height: size, borderRadius: '50%', overflow: 'hidden', border: '2px solid rgba(200,130,255,0.3)', boxShadow: isPlaying ? '0 0 16px rgba(240,100,180,0.4), 0 0 32px rgba(168,85,247,0.2)' : '0 0 8px rgba(168,85,247,0.15)', background: '#1a0a2e', position: 'relative' }}
       >
         {nowPlaying?.albumArt
@@ -160,7 +185,9 @@ export default function SpotifyWidget() {
     <div onClick={() => setExpanded(true)} style={{ ...GLASS, borderRadius: 50, display: 'flex', alignItems: 'center', gap: 10, padding: '8px 14px 8px 8px', cursor: 'pointer' }}>
       <AlbumArt size={40} />
       <div style={{ flex: 1, minWidth: 0, maxWidth: 130 }}>
-        <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, color: 'rgba(255,240,255,0.9)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }}>{isPlaying ? nowPlaying!.title : 'nothing playing…'}</p>
+        <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 12, color: 'rgba(255,240,255,0.9)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', lineHeight: 1.4 }}>
+          {isPlaying ? nowPlaying!.title : 'nothing playing…'}
+        </p>
         {isPlaying && <p style={{ fontFamily: "'Caveat', cursive", fontSize: 10, color: 'rgba(200,150,255,0.6)', fontStyle: 'italic', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nowPlaying!.artist}</p>}
       </div>
       <PlayPauseIcon playing={isPlaying} size={26} />
@@ -170,7 +197,7 @@ export default function SpotifyWidget() {
   const ExpandedCard = () => (
     <div style={{ ...GLASS, borderRadius: 20, width: '100%', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden', maxHeight: '82vh' }}>
       <motion.div animate={songPulse ? { scale: [1,1.5,1], opacity: [0.1,0.25,0.1] } : { scale: 1, opacity: 0.1 }} transition={{ duration: 1.2 }} style={{ position: 'absolute', inset: -30, background: 'radial-gradient(ellipse, rgba(168,85,247,0.2) 0%, transparent 70%)', borderRadius: '50%', pointerEvents: 'none', zIndex: 0 }} />
-      {/* Header */}
+      {/* Header tabs */}
       <div style={{ position: 'relative', zIndex: 1, flexShrink: 0 }}>
         <button onClick={() => setExpanded(false)} style={{ position: 'absolute', top: 8, right: 10, background: 'none', border: 'none', color: 'rgba(200,130,255,0.35)', cursor: 'pointer', fontSize: 11, lineHeight: 1, padding: 4 }}>▴</button>
         <div style={{ display: 'flex', borderBottom: '1px solid rgba(255,255,255,0.07)', marginTop: 8 }}>
@@ -189,7 +216,9 @@ export default function SpotifyWidget() {
             <div style={{ width: '100%', textAlign: 'center' }}>
               <AnimatePresence mode="wait">
                 <motion.div key={nowPlaying?.title ?? 'idle'} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }} transition={{ duration: 0.35 }}>
-                  <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{isPlaying ? nowPlaying!.title : 'nothing playing…'}</p>
+                  <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: 'var(--text-primary)', margin: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {isPlaying ? nowPlaying!.title : 'nothing playing…'}
+                  </p>
                   {isPlaying && <p style={{ fontFamily: "'Caveat', cursive", fontSize: 13, color: 'var(--text-secondary)', fontStyle: 'italic', margin: '2px 0 0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{nowPlaying!.artist}</p>}
                 </motion.div>
               </AnimatePresence>
@@ -204,45 +233,35 @@ export default function SpotifyWidget() {
           </motion.div>
         ) : (
           <motion.div key="playlist" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }} style={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', flex: 1 }}>
-            {/* Search bar */}
-            <div style={{ flexShrink: 0, padding: '10px 14px 6px' }}>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <span style={{ position: 'absolute', left: 9, fontSize: 11, color: 'rgba(200,130,255,0.4)', pointerEvents: 'none' }}>🔍</span>
-                <input type="text" placeholder="search to add a song…" value={query} onChange={e => handleQueryChange(e.target.value)}
-                  style={{ width: '100%', padding: '7px 28px 7px 27px', background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(200,130,255,0.2)', borderRadius: 20, color: 'rgba(220,200,255,0.9)', fontSize: 12, fontFamily: "'Caveat', cursive", outline: 'none', boxSizing: 'border-box' }}
-                />
-                {query && <button onClick={() => { setQuery(''); setSearchResults([]) }} style={{ position: 'absolute', right: 9, background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(200,130,255,0.5)', fontSize: 11, padding: 0 }}>✕</button>}
-              </div>
-              <p style={{ margin: '3px 0 0 4px', fontSize: 10, fontFamily: "'Caveat', cursive", color: 'rgba(200,130,255,0.35)' }}>
-                {query ? (searching ? 'searching…' : searchResults.length > 0 ? `${searchResults.length} results — tap + to add` : 'no results') : tracks.length > 0 ? `${tracks.length} songs` : loadingTracks ? 'loading…' : ''}
+            {/* Status line */}
+            <div style={{ flexShrink: 0, padding: '8px 14px 4px' }}>
+              <p style={{ margin: 0, fontSize: 10, fontFamily: "'Caveat', cursive", color: 'rgba(200,130,255,0.35)' }}>
+                {loadingTracks ? 'loading…' : trackError ? 'could not load — tap retry' : tracks.length > 0 ? `${tracks.length} songs` : ''}
               </p>
+              {trackError && (
+                <button onClick={loadPlaylist} style={{ marginTop: 4, background: 'none', border: '1px solid rgba(200,130,255,0.3)', borderRadius: 20, padding: '3px 12px', cursor: 'pointer', fontFamily: "'Caveat', cursive", fontSize: 11, color: 'rgba(200,130,255,0.7)' }}>retry</button>
+              )}
             </div>
-            {/* List */}
+            {/* Track list — no search */}
             <div style={{ overflowY: 'auto', maxHeight: '52vh' }}>
-              {!query && loadingTracks && <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(200,130,255,0.4)', fontFamily: "'Caveat', cursive", fontSize: 14 }}>loading…</div>}
-              {displayList.map(track => {
+              {loadingTracks && (
+                <div style={{ textAlign: 'center', padding: '24px 0', color: 'rgba(200,130,255,0.4)', fontFamily: "'Caveat', cursive", fontSize: 14 }}>loading…</div>
+              )}
+              {tracks.map(track => {
                 const isActive = track.uri === activeUri
-                const isAdded = addedUris.has(track.uri)
-                const inPlaylist = !query || tracks.some(t => t.uri === track.uri)
                 return (
-                  <div key={track.uri} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', background: isActive ? 'rgba(168,85,247,0.12)' : 'none', borderLeft: isActive ? '2px solid rgba(249,168,212,0.8)' : '2px solid transparent' }}>
-                    <button onClick={() => handlePlayTrack(track.uri)} disabled={actionPending} style={{ width: 34, height: 34, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: '#1a0a2e', position: 'relative', border: 'none', cursor: 'pointer', padding: 0 }}>
-                      {(track as PlaylistTrack).albumArt
-                        ? <Image src={(track as PlaylistTrack).albumArt!} alt="" fill className="object-cover" sizes="34px" unoptimized />
-                        : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(168,85,247,0.15)' }}><span style={{ fontSize: 10 }}>♪</span></div>
+                  <div key={track.uri} onClick={() => handlePlayTrack(track.uri)} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 14px', cursor: actionPending ? 'default' : 'pointer', background: isActive ? 'rgba(168,85,247,0.12)' : 'none', borderLeft: isActive ? '2px solid rgba(249,168,212,0.8)' : '2px solid transparent' }}>
+                    <div style={{ width: 34, height: 34, borderRadius: 5, overflow: 'hidden', flexShrink: 0, background: '#1a0a2e', position: 'relative' }}>
+                      {track.albumArt
+                        ? <Image src={track.albumArt} alt="" fill className="object-cover" sizes="34px" unoptimized />
+                        : <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(168,85,247,0.15)' }}><span style={{ fontSize: 10, color: 'rgba(200,130,255,0.5)' }}>♪</span></div>
                       }
-                    </button>
-                    <button onClick={() => handlePlayTrack(track.uri)} disabled={actionPending} style={{ flex: 1, minWidth: 0, background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ margin: 0, fontSize: 12, fontWeight: isActive ? 600 : 400, color: isActive ? 'rgba(249,168,212,0.95)' : 'rgba(220,200,255,0.85)', fontFamily: "'Cormorant Garamond', serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.title}</p>
                       <p style={{ margin: '1px 0 0', fontSize: 10, color: 'rgba(180,150,255,0.45)', fontFamily: "'Caveat', cursive", fontStyle: 'italic', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{track.artist}</p>
-                    </button>
-                    {query ? (
-                      <button onClick={() => handleAddTrack(track as SearchTrack)} disabled={inPlaylist || isAdded}
-                        style={{ width: 24, height: 24, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid', borderColor: inPlaylist || isAdded ? 'rgba(200,130,255,0.15)' : 'rgba(200,130,255,0.5)', background: inPlaylist || isAdded ? 'rgba(168,85,247,0.05)' : 'rgba(168,85,247,0.15)', cursor: inPlaylist || isAdded ? 'default' : 'pointer', color: inPlaylist || isAdded ? 'rgba(200,130,255,0.3)' : 'rgba(249,168,212,0.9)', fontSize: 13 }}
-                      >{inPlaylist || isAdded ? '✓' : '+'}</button>
-                    ) : (
-                      <span style={{ fontSize: 9, color: 'rgba(200,130,255,0.3)', fontFamily: 'monospace', flexShrink: 0 }}>{fmt(track.durationMs)}</span>
-                    )}
+                    </div>
+                    <span style={{ fontSize: 9, color: 'rgba(200,130,255,0.3)', fontFamily: 'monospace', flexShrink: 0 }}>{fmt(track.durationMs)}</span>
                   </div>
                 )
               })}
