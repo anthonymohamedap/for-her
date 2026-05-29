@@ -7,6 +7,8 @@ const SCOPES = [
   'user-read-currently-playing',
   'user-read-playback-state',
   'user-modify-playback-state',
+  'playlist-modify-public',
+  'playlist-modify-private',
 ].join(' ')
 
 interface SpotifyTokens { accessToken: string; refreshToken: string; expiresAt: number }
@@ -134,4 +136,103 @@ export async function spotifyNext():     Promise<boolean> { return playerCmd('PO
 export async function spotifyPrev():     Promise<boolean> { return playerCmd('POST', '/previous') }
 export async function spotifySeek(ms: number): Promise<boolean> {
   return playerCmd('PUT', `/seek?position_ms=${Math.round(ms)}`)
+}
+
+// ── Playlist helpers ──────────────────────────────────────────────────────────
+
+export function getPlaylistId(): string | null {
+  const url = PLAYLIST_URL
+  if (!url) return null
+  // https://open.spotify.com/playlist/ID?si=...
+  const m = url.match(/playlist\/([A-Za-z0-9]+)/)
+  return m ? m[1] : null
+}
+
+export interface PlaylistTrack {
+  uri: string
+  id: string
+  title: string
+  artist: string
+  albumArt: string | null
+  durationMs: number
+}
+
+export async function getPlaylistTracks(playlistId: string): Promise<PlaylistTrack[]> {
+  const token = await getValidToken()
+  if (!token) return []
+  try {
+    const tracks: PlaylistTrack[] = []
+    let url: string | null = `https://api.spotify.com/v1/playlists/${playlistId}/tracks?fields=next,items(track(id,uri,name,duration_ms,artists,album(images)))&limit=50`
+    while (url) {
+      const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) break
+      const data = await res.json()
+      for (const item of data.items ?? []) {
+        const t = item.track
+        if (!t || !t.uri) continue
+        tracks.push({
+          uri: t.uri,
+          id: t.id,
+          title: t.name,
+          artist: t.artists?.map((a: { name: string }) => a.name).join(', ') ?? '',
+          albumArt: t.album?.images?.[1]?.url ?? t.album?.images?.[0]?.url ?? null,
+          durationMs: t.duration_ms ?? 0,
+        })
+      }
+      url = data.next ?? null
+    }
+    return tracks
+  } catch { return [] }
+}
+
+export async function spotifyPlayTrack(uri: string): Promise<boolean> {
+  return playerCmd('PUT', '/play', { uris: [uri] })
+}
+
+// ── Search + playlist editing ─────────────────────────────────────────────────
+
+export interface SearchTrack {
+  uri: string
+  id: string
+  title: string
+  artist: string
+  albumArt: string | null
+  durationMs: number
+}
+
+export async function searchTracks(query: string): Promise<SearchTrack[]> {
+  const token = await getValidToken()
+  if (!token || !query.trim()) return []
+  try {
+    const params = new URLSearchParams({ q: query, type: 'track', limit: '20' })
+    const res = await fetch(`https://api.spotify.com/v1/search?${params}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.tracks?.items ?? []).map((t: {
+      uri: string; id: string; name: string; duration_ms: number;
+      artists: { name: string }[]; album: { images: { url: string }[] }
+    }) => ({
+      uri: t.uri,
+      id: t.id,
+      title: t.name,
+      artist: t.artists?.map((a: { name: string }) => a.name).join(', ') ?? '',
+      albumArt: t.album?.images?.[1]?.url ?? t.album?.images?.[0]?.url ?? null,
+      durationMs: t.duration_ms ?? 0,
+    }))
+  } catch { return [] }
+}
+
+export async function addTrackToPlaylist(playlistId: string, trackUri: string): Promise<boolean> {
+  const token = await getValidToken()
+  if (!token) return false
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/playlists/${playlistId}/tracks`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ uris: [trackUri] }),
+    })
+    return res.status === 201 || res.status === 200
+  } catch { return false }
 }

@@ -9,6 +9,27 @@ import IdentityScreen from '@/components/ui/IdentityScreen'
 import Nav from '@/components/ui/Nav'
 import AudioToggle from '@/components/ui/AudioToggle'
 import DesktopTopBar from '@/components/ui/DesktopTopBar'
+import DesktopSpotifyPanel from '@/components/ui/DesktopSpotifyPanel'
+import { getPanelOpen, subscribePanelOpen } from '@/lib/panelStore'
+
+const PANEL_W = 300
+
+function PanelShift({ children }: { children: React.ReactNode }) {
+  const [open, setOpen] = useState(getPanelOpen())
+
+  useEffect(() => subscribePanelOpen(() => setOpen(getPanelOpen())), [])
+
+  return (
+    <div
+      style={{
+        marginLeft: open ? PANEL_W : 0,
+        transition: 'margin-left 0.35s cubic-bezier(0.4,0,0.2,1)',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const [identity, setIdentity] = useState<Identity | null | undefined>(undefined)
@@ -45,12 +66,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
         {identity && (
           <>
-            {/* Mobile: bottom bar nav — desktop: hidden (DesktopTopBar handles it) */}
+            {/* Mobile: bottom bar nav */}
             <Nav />
-            {/* Desktop unified top bar (player + nav + moon) */}
+            {/* Desktop unified top bar */}
             <DesktopTopBar />
+            {/* Desktop side panel */}
+            <DesktopSpotifyPanel />
             <AudioToggle />
-            {children}
+            {/* Desktop: shift content right when panel open */}
+            <div className="hidden md:block">
+              <PanelShift>{children}</PanelShift>
+            </div>
+            {/* Mobile: normal */}
+            <div className="md:hidden">{children}</div>
           </>
         )}
       </body>
