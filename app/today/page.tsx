@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import Image from 'next/image'
 
 import { getIdentity, getPartnerIdentity } from '@/lib/identity'
+import { sendPushNotification } from '@/lib/push'
 import { getMemoriesForDate, getAllMemories } from '@/lib/supabase'
 import { getTodayUTC, computeStreak } from '@/lib/streak'
 import type { Identity, Memory } from '@/lib/supabase'
@@ -83,6 +84,9 @@ export default function TodayPage() {
   useEffect(() => { load() }, [load])
 
   async function handleUploaded() {
+    // Notify the other person
+    if (identity) sendPushNotification(identity)
+
     const todayMems = await getMemoriesForDate(today)
     setTodayMemories(todayMems)
     const partnerUpload = todayMems.find(m => m.identity !== identity)

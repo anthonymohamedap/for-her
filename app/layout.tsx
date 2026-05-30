@@ -11,6 +11,7 @@ import AudioToggle from '@/components/ui/AudioToggle'
 import DesktopTopBar from '@/components/ui/DesktopTopBar'
 import DesktopSpotifyPanel from '@/components/ui/DesktopSpotifyPanel'
 import { getPanelOpen, subscribePanelOpen } from '@/lib/panelStore'
+import { registerPush } from '@/lib/push'
 
 const PANEL_W = 300
 
@@ -38,12 +39,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   useEffect(() => {
     const stored = getIdentity()
     setIdentity(stored)
-    if (stored) setShowOpening(true)
+    if (stored) { setShowOpening(true); registerPush(stored) }
   }, [])
 
   function handleIdentityChosen(id: Identity) {
     setIdentity(id)
     setTimeout(() => setShowOpening(true), 900)
+    registerPush(id)
   }
 
   // Still loading identity from localStorage
