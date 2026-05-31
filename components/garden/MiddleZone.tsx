@@ -30,9 +30,12 @@ function FlameIcon() {
   )
 }
 
+const GIFT_MILESTONE = 7
+
 interface ZoneData {
   streak: number
   totalDays: number
+  longestStreak: number
   partnerLastSeen: string | null
   partnerName: string
 }
@@ -46,13 +49,14 @@ export default function MiddleZone({ openingDone }: { openingDone: boolean }) {
 
     getAllMemories()
       .then(memories => {
-        const { currentStreak, totalSharedDays } = computeStreak(memories)
+        const { currentStreak, totalSharedDays, longestStreak } = computeStreak(memories)
         const partnerMemories = memories
           .filter(m => m.identity === partner)
           .sort((a, b) => b.created_at.localeCompare(a.created_at))
         setData({
           streak: currentStreak,
           totalDays: totalSharedDays,
+          longestStreak,
           partnerLastSeen: partnerMemories[0]?.created_at ?? null,
           partnerName: partnerName(identity),
         })
@@ -145,6 +149,41 @@ export default function MiddleZone({ openingDone }: { openingDone: boolean }) {
                     )}
                   </motion.div>
                 </Link>
+
+                {/* Secret gift hint — only shows when milestone reached */}
+                {(data.streak >= GIFT_MILESTONE || data.longestStreak >= GIFT_MILESTONE) && (
+                  <Link href="/gift" style={{ textDecoration: 'none' }}>
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.9 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      transition={{ duration: 0.8, delay: 0.3 }}
+                      style={{
+                        ...cardStyle,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        gap: 8, cursor: 'pointer',
+                        background: 'rgba(249,168,212,0.06)',
+                        borderColor: 'rgba(249,168,212,0.2)',
+                      }}
+                      whileHover={{ scale: 1.02, background: 'rgba(249,168,212,0.1)' }}
+                      whileTap={{ scale: 0.97 }}
+                    >
+                      <motion.span
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
+                        style={{ fontSize: 14 }}
+                      >
+                        🎁
+                      </motion.span>
+                      <span style={{
+                        fontSize: 13, color: 'rgba(249,168,212,0.7)',
+                        fontFamily: "'Caveat', cursive", letterSpacing: '0.03em',
+                        fontStyle: 'italic',
+                      }}>
+                        something is waiting for you
+                      </span>
+                    </motion.div>
+                  </Link>
+                )}
 
                 {/* Drop a moment CTA */}
                 <Link href="/today" style={{ textDecoration: 'none' }}>
