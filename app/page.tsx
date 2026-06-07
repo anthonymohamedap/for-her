@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import Image from 'next/image'
+import dynamic from 'next/dynamic'
 import OpeningSequence from '@/components/garden/OpeningSequence'
+
+// Three.js loads from CDN inside the component — must be client-only
+const ParticleShapes = dynamic(
+  () => import('@/components/garden/ParticleShapes'),
+  { ssr: false }
+)
 import Tulip from '@/components/garden/Tulip'
 import Butterfly from '@/components/garden/Butterfly'
 import Firefly from '@/components/garden/Firefly'
@@ -232,6 +239,9 @@ export default function GardenPage() {
           ))}
 
         </motion.div>{/* end background parallax layer */}
+
+        {/* ── Particle shapes — sky layer, z:3, behind cards + chars ──── */}
+        <ParticleShapes openingDone={openingDone} isMobile={!isDesktop} />
 
         {/* ── Midground layer — parallax 0.3× ──────────────────────────── */}
         <motion.div className="absolute inset-0" style={{ x: midX, y: midY }}>
