@@ -87,6 +87,36 @@ function butterflyPos(n: number, scatter = 5, scatterZ = 20) {
   return a
 }
 
+function galaxyPos(n: number, scatter = 5, scatterZ = 20) {
+  const a    = new Float32Array(n * 3)
+  const ARMS = 4
+  const MAX_R = 190  // intentionally beyond viewport — explosion effect
+
+  for (let i = 0; i < n; i++) {
+    if (Math.random() < 0.18) {
+      // Dense central core
+      const r     = Math.random() * 22
+      const angle = Math.random() * Math.PI * 2
+      a[i * 3]     = r * Math.cos(angle) + (Math.random() - .5) * 8
+      a[i * 3 + 1] = r * Math.sin(angle) + (Math.random() - .5) * 8
+      a[i * 3 + 2] = (Math.random() - .5) * 18
+    } else {
+      // Spiral arm
+      const arm    = i % ARMS
+      const rNorm  = Math.pow(Math.random(), 0.55)       // bias toward outer
+      const r      = 18 + rNorm * MAX_R
+      const base   = (arm * Math.PI * 2) / ARMS          // arm start angle
+      const twist  = r * 0.023                            // spiral tightness
+      const spread = 0.25 + rNorm * 0.55                 // more scatter at edge
+      const angle  = base + twist + (Math.random() - .5) * spread
+      a[i * 3]     = r * Math.cos(angle)         + (Math.random() - .5) * scatter * 2.5
+      a[i * 3 + 1] = r * Math.sin(angle) * 0.48  + (Math.random() - .5) * scatter * 1.8  // flattened disk
+      a[i * 3 + 2] = (Math.random() - .5) * scatterZ * 1.5
+    }
+  }
+  return a
+}
+
 // ─── Core animation (runs after Three.js is available) ────────────────────────
 
 function initAnimation(container: HTMLDivElement, isMobile: boolean): () => void {
@@ -149,13 +179,17 @@ function initAnimation(container: HTMLDivElement, isMobile: boolean): () => void
   const points = new THREE.Points(geometry, material)
   scene.add(points)
 
-  // ── Shapes ──────────────────────────────────────────────────────────────
+  // ── Shapes — each shape defines how it exits (holdTime / nextDur / nextEase) ──
+  //
+  //  flower → galaxy : short hold + fast power3.out  = particles EXPLODE outward
+  //  galaxy → heart  : longer hold + slow power2.inOut = particles GATHER back in
   const SHAPES = [
-    { build: (n: number) => heartPos(n, heartScale, SCATTER, SZ), label: 'heart'     },
-    { build: (n: number) => starPos(n, SCATTER, SZ),              label: 'star'      },
-    { build: (n: number) => butterflyPos(n, SCATTER, SZ),         label: 'butterfly' },
-    { build: (n: number) => infinityPos(n, SCATTER, SZ),          label: 'infinity'  },
-    { build: (n: number) => rosePos(n, SCATTER, SZ),              label: 'flower'    },
+    { build: (n: number) => heartPos(n, heartScale, SCATTER, SZ), label: 'heart',    holdTime: 1.8, nextDur: 2.2, nextEase: 'power2.inOut' },
+    { build: (n: number) => starPos(n, SCATTER, SZ),              label: 'star',     holdTime: 1.8, nextDur: 2.2, nextEase: 'power2.inOut' },
+    { build: (n: number) => butterflyPos(n, SCATTER, SZ),         label: 'butterfly',holdTime: 1.8, nextDur: 2.2, nextEase: 'power2.inOut' },
+    { build: (n: number) => infinityPos(n, SCATTER, SZ),          label: 'infinity', holdTime: 1.8, nextDur: 2.2, nextEase: 'power2.inOut' },
+    { build: (n: number) => rosePos(n, SCATTER, SZ),              label: 'flower',   holdTime: 1.2, nextDur: 1.3, nextEase: 'power3.out'   },  // ← EXPLOSION
+    { build: (n: number) => galaxyPos(n, SCATTER, SZ),            label: 'galaxy',   holdTime: 2.5, nextDur: 4.0, nextEase: 'power2.inOut' },  // ← SLOW GATHER
   ]
   const targets = SHAPES.map(s => s.build(COUNT))
 
@@ -196,14 +230,14 @@ function initAnimation(container: HTMLDivElement, isMobile: boolean): () => void
 
   // ── Morph loop ───────────────────────────────────────────────────────────
   const proxy = { t: 0 }
-  let shapeIndex = 1
+  let shapeIndex = 1   // intro already shows SHAPES[0]
   const snap = new Float32Array(COUNT * 3)
 
-  function morphTo(target: Float32Array, dur: number, done: () => void) {
+  function morphTo(target: Float32Array, dur: number, ease: string, done: () => void) {
     snap.set(posArr)
     proxy.t = 0
     gsap.to(proxy, {
-      t: 1, duration: dur, ease: 'power2.inOut',
+      t: 1, duration: dur, ease,
       onUpdate() {
         const t = proxy.t, it = 1 - t
         for (let i = 0; i < COUNT * 3; i++) posArr[i] = snap[i] * it + target[i] * t
@@ -214,8 +248,11 @@ function initAnimation(container: HTMLDivElement, isMobile: boolean): () => void
   }
 
   function scheduleNext() {
-    gsap.delayedCall(1.8, () => {
-      morphTo(targets[shapeIndex], 2.2, () => {
+    // Read transition params from the shape we just finished arriving at
+    const currentIdx = (shapeIndex - 1 + SHAPES.length) % SHAPES.length
+    const current    = SHAPES[currentIdx]
+    gsap.delayedCall(current.holdTime, () => {
+      morphTo(targets[shapeIndex], current.nextDur, current.nextEase, () => {
         shapeIndex = (shapeIndex + 1) % SHAPES.length
         scheduleNext()
       })
