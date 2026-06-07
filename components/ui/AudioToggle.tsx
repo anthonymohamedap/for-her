@@ -11,12 +11,11 @@ let readyPromise: Promise<void> | null = null
 
 // Sound definitions — missing files are silently skipped via onloaderror
 const SOUND_DEFS: Record<string, { src: string; loop?: boolean; volume: number; html5?: boolean }> = {
-  ambient: { src: '/sounds/ambient.mp3', loop: true, volume: 0,    html5: true },
-  piano:   { src: '/sounds/piano.mp3',   loop: true, volume: 0 },
-  bark:    { src: '/sounds/bark.mp3',               volume: 0.15 },
-  sneeze:  { src: '/sounds/sneeze.mp3',             volume: 0.15 },
-  squeak:  { src: '/sounds/squeak.mp3',             volume: 0.15 },
-  snore:   { src: '/sounds/snore.mp3',   loop: true, volume: 0.1  },
+  music:  { src: '/sounds/love-story.mp3', loop: true, volume: 0, html5: true },
+  bark:   { src: '/sounds/bark.mp3',                   volume: 0.15 },
+  sneeze: { src: '/sounds/sneeze.mp3',                 volume: 0.15 },
+  squeak: { src: '/sounds/squeak.mp3',                 volume: 0.15 },
+  snore:  { src: '/sounds/snore.mp3',       loop: true, volume: 0.1  },
 }
 
 function ensureReady(): Promise<void> {
@@ -63,13 +62,12 @@ function safeStop(name: string) {
 
 // Called by OpeningSequence — no-ops if audio not yet enabled
 export function fadeInAmbient() {
-  if (!audioEnabled || !howls.ambient) return
-  safePlay('ambient', 0.08, 3000)
+  if (!audioEnabled || !howls.music) return
+  safePlay('music', 0.22, 3000)
 }
 
 export function fadeInPiano() {
-  if (!audioEnabled || !howls.piano) return
-  safePlay('piano', 0.12, 4000)
+  // Piano removed — music track covers both roles; this is a no-op kept for call-site compat
 }
 
 export function playSound(name: string) {
@@ -87,21 +85,17 @@ export function stopSound(name: string) { safeStop(name) }
 // ─── Garden music pause/resume (called by SpotifyWidget) ─────────────────────
 
 export function pauseGardenMusic() {
-  const musicTracks = ['ambient', 'piano']
-  musicTracks.forEach(name => {
-    const h = howls[name]
-    if (!h) return
-    try { h.fade(h.volume(), 0, 800) } catch {}
-    setTimeout(() => { try { h.pause() } catch {} }, 900)
-  })
+  const h = howls.music
+  if (!h) return
+  try { h.fade(h.volume(), 0, 800) } catch {}
+  setTimeout(() => { try { h.pause() } catch {} }, 900)
 }
 
 export function resumeGardenMusic() {
   if (!audioEnabled) return
-  const ambient = howls.ambient
-  const piano = howls.piano
-  if (ambient) { try { ambient.play(); ambient.fade(0, 0.08, 1200) } catch {} }
-  if (piano) { try { piano.play(); piano.fade(0, 0.10, 1500) } catch {} }
+  const h = howls.music
+  if (!h) return
+  try { h.play(); h.fade(0, 0.22, 1200) } catch {}
 }
 
 export default function AudioToggle() {
@@ -113,9 +107,7 @@ export default function AudioToggle() {
       audioEnabled = true
       // Load Howler + create instances, then start music
       await ensureReady()
-      safePlay('ambient', 0.08, 3000)
-      // Piano fades in clearly after ambient has established — 6s gap
-      setTimeout(() => safePlay('piano', 0.10, 4000), 6000)
+      safePlay('music', 0.22, 3000)
     } else {
       audioEnabled = false
       setMuted(true)
